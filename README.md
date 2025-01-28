@@ -1,5 +1,7 @@
 # Quasar App (deepseek-chat-to-pdf)
 
+<img src="./src/assets/deepseek-color.png" />
+
 A Quasar Project that supports exporting DeepSeek and ChatGPT chats to PDF. You can modify the entire chat before exporting. The export also supports tables and LaTeX formatting.
 
 ## Install the dependencies
