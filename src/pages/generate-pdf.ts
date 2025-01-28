@@ -42,8 +42,8 @@ pdfmake.vfs = vfs
 export async function generatePdf(html: HTMLElement, title: string) {
   processCodeBlocks(html)
   await exportRenderedLatexToPdf()
-  const content = html2pdfmake(html.innerHTML)
-  console.log(content)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const content = html2pdfmake(html.innerHTML) as unknown as any[]
   const fonts: TFontDictionary = {
     Arial: {
       normal: 'arial-normal.TTF',
