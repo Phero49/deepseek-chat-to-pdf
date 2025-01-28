@@ -1,40 +1,16 @@
 <template>
   <q-layout view="lHh Lpr lFf">
-    <q-header elevated>
-      <q-toolbar>
-        <q-btn
-          flat
-          dense
-          round
-          icon="menu"
-          aria-label="Menu"
-          @click="toggleLeftDrawer"
-        />
+    <div id="header"></div>
 
-        <q-toolbar-title>
-          Quasar App
-        </q-toolbar-title>
-
-        <div>Quasar v{{ $q.version }}</div>
-      </q-toolbar>
-    </q-header>
-
-    <q-drawer
-      v-model="leftDrawerOpen"
-      show-if-above
-      bordered
-    >
+    <q-drawer v-model="leftDrawerOpen" show-if-above bordered>
       <q-list>
-        <q-item-label
-          header
-        >
-          Essential Links
-        </q-item-label>
+        <q-item-label header> Exported charts </q-item-label>
 
         <EssentialLink
           v-for="link in linksList"
           :key="link.title"
           v-bind="link"
+          @delete-chat="deleteChat"
         />
       </q-list>
     </q-drawer>
@@ -46,57 +22,47 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import EssentialLink, { type EssentialLinkProps } from 'components/EssentialLink.vue';
+import { reactive, ref } from 'vue'
+import EssentialLink, { type EssentialLinkProps } from 'components/EssentialLink.vue'
+import { useQuasar } from 'quasar'
+import { type ChatItem } from 'app'
+const linksList: EssentialLinkProps[] = reactive([])
+const $q = useQuasar()
+const bex = $q.bex
 
-const linksList: EssentialLinkProps[] = [
-  {
-    title: 'Docs',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev'
-  },
-  {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework'
-  },
-  {
-    title: 'Discord Chat Channel',
-    caption: 'chat.quasar.dev',
-    icon: 'chat',
-    link: 'https://chat.quasar.dev'
-  },
-  {
-    title: 'Forum',
-    caption: 'forum.quasar.dev',
-    icon: 'record_voice_over',
-    link: 'https://forum.quasar.dev'
-  },
-  {
-    title: 'Twitter',
-    caption: '@quasarframework',
-    icon: 'rss_feed',
-    link: 'https://twitter.quasar.dev'
-  },
-  {
-    title: 'Facebook',
-    caption: '@QuasarFramework',
-    icon: 'public',
-    link: 'https://facebook.quasar.dev'
-  },
-  {
-    title: 'Quasar Awesome',
-    caption: 'Community Quasar projects',
-    icon: 'favorite',
-    link: 'https://awesome.quasar.dev'
+type Chats = ChatItem[]
+
+async function deleteChat(id: string) {
+  const index = linksList.findIndex((l) => l.id == id)
+  if (index >= 0) {
+    linksList.splice(index, 1)
+    await bex.send({
+      event: 'storage.remove',
+      payload: id,
+      to: 'background',
+    })
   }
-];
-
-const leftDrawerOpen = ref(false);
-
-function toggleLeftDrawer () {
-  leftDrawerOpen.value = !leftDrawerOpen.value;
 }
+
+bex
+  .send({
+    event: 'storage.get',
+    to: 'background',
+  })
+  .then((response: Chats) => {
+    console.log('response', Object.values(response), response)
+    for (const data of response) {
+      linksList.push({
+        title: data.title,
+        link: data.url,
+        id: data.id,
+        timestamp: data.timeStamp as number,
+      })
+    }
+  })
+  .catch((reason: string) => {
+    console.log(reason)
+  })
+console.log('sent')
+const leftDrawerOpen = ref(false)
 </script>
