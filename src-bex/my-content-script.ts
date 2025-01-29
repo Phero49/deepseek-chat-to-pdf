@@ -157,21 +157,31 @@ if (body) {
     const button = document.createElement('button')
     button.textContent = 'export chat'
 
-    // Style the button
     button.id = 'exportBtn'
     button.style.position = 'fixed'
-    button.style.top = '10px' // Increased top margin
-    button.style.left = '50%'
-    button.style.transform = 'translateX(-50%)'
-    button.style.padding = '5px 20px'
-    button.style.margin = '2px 0' // Adds vertical margin
+    button.style.right = '20px' // Keeps it slightly away from the edge
+    button.style.bottom = '25%' // 30% from the bottom
+    button.style.padding = '10px 16px' // Larger padding for a better feel
     button.style.fontSize = '16px'
     button.style.cursor = 'pointer'
     button.style.zIndex = '9999' // Ensures it's on top
     button.style.border = 'none'
-    button.style.borderRadius = '5px'
-    button.style.background = '#007BFF'
+    button.style.borderRadius = '10px' // Smooth rounded edges
+    button.style.background = '#007BFF' // Primary blue
     button.style.color = 'white'
+    button.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.2)' // Soft shadow for depth
+    button.style.transition = 'all 0.3s ease-in-out' // Smooth transition effect
+
+    // Hover effect
+    button.onmouseover = () => {
+      button.style.background = '#0056b3' // Darker blue on hover
+      button.style.boxShadow = '0 6px 15px rgba(0, 0, 0, 0.3)' // Enhanced shadow
+    }
+
+    button.onmouseleave = () => {
+      button.style.background = '#007BFF' // Back to original color
+      button.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.2)' // Reset shadow
+    }
 
     // Attach event listener for the button click
     button.addEventListener('click', () => {
@@ -194,7 +204,6 @@ if (body) {
       const userPrompts = document.querySelectorAll<HTMLDivElement>(userPromptSelector)
 
       // Ensure userPrompts and modelResponses have matching indexes
-      console.log(userPrompts.length, modelResponses.length)
       const chat = Array.from(modelResponses).map((data, i) => {
         const { display } = window.getComputedStyle(data)
         console.log(display, display == '', i)
@@ -213,8 +222,6 @@ if (body) {
         }
       })
 
-      // Send chat data to background script
-      console.log('send')
       bridge
         .send({
           event: 'chat.receiveChat',

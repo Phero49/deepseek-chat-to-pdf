@@ -1,18 +1,23 @@
 <template>
-  <teleport to="#header" v-if="$route.query['mode'] == 'readonly'">
-    <q-header elevated>
-      <q-toolbar>
-        <q-toolbar-title> AI chat to PDF </q-toolbar-title>
-        <q-btn label="edit " flat icon="edit" :to="`/${chatId}?mode=edit`" />
-        <q-btn
-          label="export "
-          flat
-          icon="export"
-          @click="generatePdf(editorRef?.getContentEl() as HTMLElement, chatData?.title as string)"
-        />
-      </q-toolbar>
-    </q-header>
-  </teleport>
+  <div v-show="$route.query['mode'] == 'readonly' && hide">
+    <teleport to="#header">
+      <q-header elevated>
+        <q-toolbar>
+          <q-toolbar-title> AI chat to PDF </q-toolbar-title>
+          <q-btn label="edit " flat icon="edit" :to="`/${chatId}?mode=edit`" />
+          <q-btn
+            label="export "
+            flat
+            icon="export"
+            @click="
+              generatePdf(editorRef?.getContentEl() as HTMLElement, chatData?.title as string)
+            "
+          />
+        </q-toolbar>
+      </q-header>
+    </teleport>
+  </div>
+
   <q-page>
     <q-editor
       content-class="q-mx-lg q-px-md"
@@ -151,6 +156,10 @@ const toolbar = [
 ]
 
 higlightjs.highlightAll()
+const hide = ref(true)
+onMounted(() => {
+  hide.value = true
+})
 </script>
 <style>
 /* @import url(''); */

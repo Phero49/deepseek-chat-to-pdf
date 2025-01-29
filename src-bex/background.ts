@@ -41,6 +41,7 @@ declare module '@quasar/app-vite' {
     getTime: [never, number]
     'chat.receiveChat': [ChatItem]
     'chat.display': [ChatItem]
+    'chat.open': [string]
     'chat.list': []
     'storage.get': [string | undefined, any]
     'storage.set': [{ key: string; value: any }, void]
@@ -64,23 +65,26 @@ bridge.on('getTime', () => {
   return Date.now()
 })
 bridge.on('chat.list', async () => {
-  console.log('get data')
   const data = await chrome.storage.local.get(null)
-  console.log(data)
   return data
 })
 bridge.on('chat.receiveChat', async ({ payload }) => {
   const p = payload as ChatItem
   p['timeStamp'] = Date.now()
   await chrome.storage.local.set({ [p.id]: p })
+
   chrome.tabs.create(
     {
-      url: chrome.runtime.getURL('www/index.html'),
+      url: chrome.runtime.getURL(`www/index.html#/`),
     },
     (/* newTab */) => {
       // Tab opened.
+      setTimeout(() => {
+        void bridge.send({ to: 'app', event: 'chat.open', payload: p.id })
+      }, 2000)
     },
   )
+  return true
 })
 
 bridge.on('storage.get', ({ payload: key }) => {

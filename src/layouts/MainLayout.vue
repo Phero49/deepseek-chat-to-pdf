@@ -26,9 +26,11 @@ import { reactive, ref } from 'vue'
 import EssentialLink, { type EssentialLinkProps } from 'components/EssentialLink.vue'
 import { useQuasar } from 'quasar'
 import { type ChatItem } from 'app'
+import { useRouter } from 'vue-router'
 const linksList: EssentialLinkProps[] = reactive([])
 const $q = useQuasar()
 const bex = $q.bex
+const router = useRouter()
 
 type Chats = ChatItem[]
 
@@ -43,6 +45,12 @@ async function deleteChat(id: string) {
     })
   }
 }
+
+// bex.on('chat.open', ({ payload }: { payload: string }) => {
+//   console.log(payload, 'kkkkkkkk')
+
+//   void router.push(`/${payload}?mode=readonly`)
+// })
 
 bex
   .send({
@@ -63,6 +71,11 @@ bex
   .catch((reason: string) => {
     console.log(reason)
   })
-console.log('sent')
+
+bex.on('chat.open', ({ payload }: { payload: string }) => {
+  console.log(payload, 'kkkkkkkk')
+
+  void router.push(`/${payload}?mode=readonly`)
+})
 const leftDrawerOpen = ref(false)
 </script>
