@@ -3,6 +3,7 @@ export interface ChatItem {
   url: string
   title: string
   timeStamp?: number
+  source: string
   chat: {
     prompt: string
     response: string
