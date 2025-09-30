@@ -8,6 +8,9 @@
  * 3. Import it in your background service worker (if available for your target browser).
  */
 import { createBridge } from '#q-app/bex/background'
+import { getChatFromDb, writeDb } from './utils/database'
+import type { ChatgptChatData, GeneralChat } from './utils/processChatData'
+import { processChatGPT, processDeepseekChat } from './utils/processChatData'
 
 function openExtension() {
   chrome.tabs.create(
@@ -28,6 +31,7 @@ interface ChatItem {
   id: string
   url: string
   title: string
+  source: string
   timeStamp?: number
   chat: {
     prompt: string
@@ -44,6 +48,7 @@ declare module '@quasar/app-vite' {
     'chat.open': [string]
     'chat.list': []
     'storage.get': [string | undefined, any]
+    'storage.getChatFromDB': [GeneralChat]
     'storage.set': [{ key: string; value: any }, void]
     'storage.remove': [string, void]
     /* eslint-enable @typescript-eslint/no-explicit-any */
@@ -68,24 +73,6 @@ bridge.on('chat.list', async () => {
   const data = await chrome.storage.local.get(null)
   return data
 })
-bridge.on('chat.receiveChat', async ({ payload }) => {
-  const p = payload as ChatItem
-  p['timeStamp'] = Date.now()
-  await chrome.storage.local.set({ [p.id]: p })
-
-  chrome.tabs.create(
-    {
-      url: chrome.runtime.getURL(`www/index.html#/`),
-    },
-    (/* newTab */) => {
-      // Tab opened.
-      setTimeout(() => {
-        void bridge.send({ to: 'app', event: 'chat.open', payload: p.id })
-      }, 2000)
-    },
-  )
-  return true
-})
 
 bridge.on('storage.get', ({ payload: key }) => {
   return new Promise((resolve) => {
@@ -101,135 +88,62 @@ bridge.on('storage.get', ({ payload: key }) => {
     }
   })
 })
-// Usage:
-// bridge.send({
-//   event: 'storage.get',
-//   to: 'background',
-//   payload: 'key' // or omit `payload` to get data for all keys
-// }).then((result) => { ... }).catch((error) => { ... });
 
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
 bridge.on('storage.set', async ({ payload: { key, value } }) => {
   await chrome.storage.local.set({ [key]: value })
   return
 })
-// Usage:
-// bridge.send({
-//   event: 'storage.set',
-//   to: 'background',
-//   payload: { key: 'someKey', value: 'someValue' }
-// }).then(() => { ... }).catch((error) => { ... });
 
 // eslint-disable-next-line @typescript-eslint/no-misused-promises, @typescript-eslint/no-unused-vars
 bridge.on('storage.remove', async ({ payload: key }) => {
   //chrome.storage.local.remove(key);
 })
-// Usage:
-// bridge.send({
-//   event: 'storage.remove',
-//   to: 'background',
-//   payload: 'someKey'
-// }).then(() => { ... }).catch((error) => { ... });
 
-/*
-// More examples:
+/************ none legacy  */
 
-// Listen to a message from the client
-bridge.on('test', message => {
-  console.log(message);
-  console.log(message.payload);
-});
+//get chat from the dom
+bridge.on('chat.receiveChat', async ({ payload }) => {
+  const p = payload as ChatItem
+  p['timeStamp'] = Date.now()
+  let newChat: GeneralChat
 
-// Send a message and split payload into chunks
-// to avoid max size limit of BEX messages.
-// Warning! This happens automatically when the payload is an array.
-// If you actually want to send an Array, wrap it in an Object.
-bridge.send({
-  event: 'test',
-  to: 'app',
-  payload: [ 'chunk1', 'chunk2', 'chunk3', ... ]
-}).then(responsePayload => { ... }).catch(err => { ... });
-
-// Send a message and wait for a response
-bridge.send({
-  event: 'test',
-  to: 'app',
-  payload: { banner: 'Hello from background!' }
-}).then(responsePayload => { ... }).catch(err => { ... });
-
-// Listen to a message from the client and respond synchronously
-bridge.on('test', message => {
-  console.log(message);
-  return { banner: 'Hello from background!' };
-});
-
-// Listen to a message from the client and respond asynchronously
-bridge.on('test', async message => {
-  console.log(message);
-  const result = await someAsyncFunction();
-  return result;
-});
-bridge.on('test', message => {
-  console.log(message)
-  return new Promise(resolve => {
-    setTimeout(() => {
-      resolve({ banner: 'Hello from background!' });
-    }, 1000);
-  });
-});
-
-// Broadcast a message to app & content scripts
-bridge.portList.forEach(portName => {
-  bridge.send({ event: 'test', to: portName, payload: 'Hello from background!' });
-});
-
-// Find any connected content script and send a message to it
-const contentPort = bridge.portList.find(portName => portName.startsWith('content@'));
-if (contentPort) {
-  bridge.send({ event: 'test', to: contentPort, payload: 'Hello from background!' });
-}
-
-// Send a message to a certain content script
-bridge
-  .send({ event: 'test', to: 'content@my-content-script-2345', payload: 'Hello from background!' })
-  .then(responsePayload => { ... })
-  .catch(err => { ... });
-
-// Listen for connection events
-// (the "@quasar:ports" is an internal event name registered automatically by the bridge)
-// --> ({ portList: string[], added?: string } | { portList: string[], removed?: string })
-bridge.on('@quasar:ports', ({ portList, added, removed }) => {
-  console.log('Ports:', portList)
-  if (added) {
-    console.log('New connection:', added);
-  } else if (removed) {
-    console.log('Connection removed:', removed);
+  switch (p.source) {
+    case 'chatgpt':
+      newChat = await processChatGPT(payload as ChatgptChatData)
+      break
+    case 'deepseek':
+      // newChat = await
+      newChat = await processDeepseekChat(payload as ChatgptChatData)
+      break
+    case 'qwen':
+      newChat = await writeDb(payload as GeneralChat)
+      break
+    case 'gemini':
+      newChat = await writeDb(payload as GeneralChat)
+      break
+    default:
+      break
   }
-});
 
-// Send a message to the client based on something happening.
-chrome.tabs.onCreated.addListener(tab => {
-  bridge.send(...).then(responsePayload => { ... }).catch(err => { ... });
-});
+  await chrome.storage.local.set({ [p.id]: p })
 
-// Send a message to the client based on something happening.
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.url) {
-    bridge.send(...).then(responsePayload => { ... }).catch(err => { ... });
-  }
-});
+  chrome.tabs.create(
+    {
+      url: chrome.runtime.getURL(`www/index.html#/`),
+    },
+    (/* newTab */) => {
+      // Tab opened.
+      setTimeout(() => {
+        void bridge.send({ to: 'app', event: 'chat.open', payload: newChat.id })
+      }, 2000)
+    },
+  )
+  return true
+})
 
-// Dynamically set debug mode
-bridge.setDebug(true); // boolean
-
-// Log a message on the console (if debug is enabled)
-bridge.log('Hello world!');
-bridge.log('Hello', 'world!');
-bridge.log('Hello world!', { some: 'data' });
-bridge.log('Hello', 'world', '!', { some: 'object' });
-// Log a warning on the console (regardless of the debug setting)
-bridge.warn('Hello world!');
-bridge.warn('Hello', 'world!');
-bridge.warn('Hello world!', { some: 'data' });
-bridge.warn('Hello', 'world', '!', { some: 'object' });
-*/
+//get chat from index db by chatid
+bridge.on('storage.getChatFromDB', ({ payload: key }) => {
+  console.log('key', key)
+  return getChatFromDb(key)
+})

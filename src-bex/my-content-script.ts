@@ -6,7 +6,7 @@
  *   If you don't need createBridge(), leave it as "import '#q-app/bex/content'".
  */
 import { createBridge } from '#q-app/bex/content'
-
+import { getChatGptData, processGemini, processQwen } from 'src/utils/getDomData'
 // The use of the bridge is optional.
 const bridge = createBridge({ debug: false })
 /**
@@ -53,102 +53,7 @@ bridge
     console.error('Failed to connect to background:', err)
   })
 
-/*
-// More examples:
-
-// Listen to a message from the client
-bridge.on('test', message => {
-  console.log(message);
-  console.log(message.payload);
-});
-
-// Send a message and split payload into chunks
-// to avoid max size limit of BEX messages.
-// Warning! This happens automatically when the payload is an array.
-// If you actually want to send an Array, wrap it in an object.
-bridge.send({
-  event: 'test',
-  to: 'app',
-  payload: [ 'chunk1', 'chunk2', 'chunk3', ... ]
-}).then(responsePayload => { ... }).catch(err => { ... });
-
-// Send a message and wait for a response
-bridge.send({
-  event: 'test',
-  to: 'background',
-  payload: { banner: 'Hello from content-script' }
-}).then(responsePayload => { ... }).catch(err => { ... });
-
-// Listen to a message from the client and respond synchronously
-bridge.on('test', message => {
-  console.log(message);
-  return { banner: 'Hello from a content-script!' };
-});
-
-// Listen to a message from the client and respond asynchronously
-bridge.on('test', async message => {
-  console.log(message);
-  const result = await someAsyncFunction();
-  return result;
-});
-bridge.on('test', message => {
-  console.log(message);
-  return new Promise(resolve => {
-    setTimeout(() => {
-      resolve({ banner: 'Hello from a content-script!' });
-    }, 1000);
-  });
-});
-
-// Broadcast a message to background, app & the other content scripts
-bridge.portList.forEach(portName => {
-  bridge.send({ event: 'test', to: portName, payload: 'Hello from content-script!' });
-});
-
-// Find any connected content script and send a message to it
-const contentPort = bridge.portList.find(portName => portName.startsWith('content@'));
-if (contentPort) {
-  bridge.send({ event: 'test', to: contentPort, payload: 'Hello from a content-script!' });
-}
-
-// Send a message to a certain content script
-bridge
-  .send({ event: 'test', to: 'content@my-content-script-2345', payload: 'Hello from a content-script!' })
-  .then(responsePayload => { ... })
-  .catch(err => { ... });
-
-// Listen for connection events
-// (the "@quasar:ports" is an internal event name registered automatically by the bridge)
-// --> ({ portList: string[], added?: string } | { portList: string[], removed?: string })
-bridge.on('@quasar:ports', ({ portList, added, removed }) => {
-  console.log('Ports:', portList);
-  if (added) {
-    console.log('New connection:', added);
-  } else if (removed) {
-    console.log('Connection removed:', removed);
-  }
-});
-
-// Current bridge port name (can be 'content@<name>-<xxxxx>')
-console.log(bridge.portName);
-
-// Dynamically set debug mode
-bridge.setDebug(true); // boolean
-
-// Log a message on the console (if debug is enabled)
-bridge.log('Hello world!');
-bridge.log('Hello', 'world!');
-bridge.log('Hello world!', { some: 'data' });
-bridge.log('Hello', 'world', '!', { some: 'object' });
-// Log a warning on the console (regardless of the debug setting)
-bridge.warn('Hello world!');
-bridge.warn('Hello', 'world!');
-bridge.warn('Hello world!', { some: 'data' });
-bridge.warn('Hello', 'world', '!', { some: 'object' });
-*/
-
 const body = document.querySelector('body')
-console.log(body)
 
 if (body) {
   const btn = body.querySelector('#exportBtn')
@@ -159,78 +64,158 @@ if (body) {
 
     button.id = 'exportBtn'
     button.style.position = 'fixed'
-    button.style.right = '20px' // Keeps it slightly away from the edge
-    button.style.bottom = '25%' // 30% from the bottom
-    button.style.padding = '10px 16px' // Larger padding for a better feel
+    button.style.right = '20px'
+    button.style.bottom = '25%'
+    button.style.padding = '10px 16px'
     button.style.fontSize = '16px'
     button.style.cursor = 'pointer'
-    button.style.zIndex = '9999' // Ensures it's on top
+    button.style.zIndex = '9999'
     button.style.border = 'none'
-    button.style.borderRadius = '10px' // Smooth rounded edges
-    button.style.background = '#007BFF' // Primary blue
+    button.style.borderRadius = '10px'
+    button.style.background = 'rgba(0, 123, 255, 0.643)'
     button.style.color = 'white'
-    button.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.2)' // Soft shadow for depth
-    button.style.transition = 'all 0.3s ease-in-out' // Smooth transition effect
+    button.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.2)'
+    button.style.transition = 'all 0.3s ease-in-out'
 
     // Hover effect
     button.onmouseover = () => {
-      button.style.background = '#0056b3' // Darker blue on hover
-      button.style.boxShadow = '0 6px 15px rgba(0, 0, 0, 0.3)' // Enhanced shadow
+      button.style.background = '#0056b3a4'
+      button.style.boxShadow = '0 6px 15px rgba(0, 0, 0, 0.3)'
     }
 
     button.onmouseleave = () => {
-      button.style.background = '#007BFF' // Back to original color
-      button.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.2)' // Reset shadow
+      button.style.background = 'rgba(0, 123, 255, 0.643)'
+      button.style.boxShadow = '0 4px 10px rgba(0, 0, 0, 0.2)'
     }
 
+    // When drag starts, remove right/bottom positioning
+    button.addEventListener('mousedown', (evt) => {
+      // Prevent text selection during drag
+      evt.preventDefault()
+
+      // Convert from right/bottom to left/top positioning for consistent dragging
+      const rect = button.getBoundingClientRect()
+      button.style.right = ''
+      button.style.bottom = ''
+      button.style.left = rect.left + 'px'
+      button.style.top = rect.top + 'px'
+
+      const shiftX = evt.clientX - rect.left
+      const shiftY = evt.clientY - rect.top
+
+      // Set cursor to indicate dragging
+      button.style.cursor = 'grabbing'
+
+      function onMouseMove(event: MouseEvent) {
+        // Constrain to window boundaries
+        let newLeft = event.clientX - shiftX
+        let newTop = event.clientY - shiftY
+
+        // Don't allow dragging outside window
+        const buttonWidth = button.offsetWidth
+        const buttonHeight = button.offsetHeight
+
+        if (newLeft < 0) newLeft = 0
+        if (newTop < 0) newTop = 0
+        if (newLeft > window.innerWidth - buttonWidth) newLeft = window.innerWidth - buttonWidth
+        if (newTop > window.innerHeight - buttonHeight) newTop = window.innerHeight - buttonHeight
+
+        button.style.left = newLeft + 'px'
+        button.style.top = newTop + 'px'
+      }
+
+      function onMouseUp() {
+        document.removeEventListener('mousemove', onMouseMove)
+        document.removeEventListener('mouseup', onMouseUp)
+        button.style.cursor = 'pointer' // Reset cursor
+      }
+
+      document.addEventListener('mousemove', onMouseMove)
+      document.addEventListener('mouseup', onMouseUp)
+    })
+
     // Attach event listener for the button click
-    button.addEventListener('click', () => {
-      let chatSelector = ''
-      let userPromptSelector = ''
+    const onClick = async () => {
+      if (!bridge.isConnected) {
+        bridge
+          .connectToBackground()
+          .then(() => {
+            console.log('Connected to background')
+            void onClick()
+          })
+          .catch((err) => {
+            console.error('Failed to connect to background:', err)
+          })
+      }
+
+      // const dbs = {chatgpt:{
+      //   db:"conversionDatabase",
+      //   table:"conversations"
+      // }}
+
       const title = window.document.title
       const id = window.location.href.split('/').at(-1)
       const url = window.location.href
       const origin = window.location.origin
+      let chatSource = 'chatgpt'
       if (origin.includes('deepseek')) {
-        chatSelector = '.ds-markdown--block'
-        userPromptSelector = '.fa81'
-      } else {
-        chatSelector = '.markdown'
-        userPromptSelector = '.bg-token-message-surface'
+        chatSource = 'deepseek'
+        try {
+          const chat = await getChatGptData(id as string, 'history-message', 'deepseek-chat')
+          await bridge.send({
+            event: 'chat.receiveChat',
+            to: 'background',
+            payload: { title, chat, id, url, source: chatSource }, // Include chat array inside payload
+          })
+        } catch (error) {
+          console.error('error getting chatgpt dat', error)
+        }
+      } else if (origin.includes('chatgpt')) {
+        try {
+          const chat = await getChatGptData(id as string, 'conversations', 'ConversationsDatabase')
+          await bridge.send({
+            event: 'chat.receiveChat',
+            to: 'background',
+            payload: { title, chat, id, url, source: chatSource }, // Include chat array inside payload
+          })
+        } catch (error) {
+          console.error('error getting chatgpt dat', error)
+        }
+
+        return
+      } else if (origin.includes('gemini')) {
+        const chat = await processGemini()
+        await bridge.send({
+          event: 'chat.receiveChat',
+          to: 'background',
+          payload: {
+            title: title + '-' + new Date().toLocaleString(),
+            messages: chat,
+            id,
+            url,
+            source: 'gemini',
+          }, // Include chat array inside payload
+        })
+      } else if (origin.includes('qwen')) {
+        const chat = await processQwen()
+        await bridge.send({
+          event: 'chat.receiveChat',
+          to: 'background',
+          payload: {
+            title: title + '-' + new Date().toLocaleString(),
+            messages: chat,
+            id,
+            url,
+            source: 'qwen',
+          }, // Include chat array inside payload
+        })
       }
 
       // Ensure this is the correct class/ID
-      const modelResponses = document.querySelectorAll<HTMLDivElement>(chatSelector)
-      const userPrompts = document.querySelectorAll<HTMLDivElement>(userPromptSelector)
+    }
 
-      // Ensure userPrompts and modelResponses have matching indexes
-      const chat = Array.from(modelResponses).map((data, i) => {
-        const { display } = window.getComputedStyle(data)
-        console.log(display, display == '', i)
-        if (display == 'none' || display == '') {
-          return
-        }
-        if (i > userPrompts.length - 1) {
-          return {
-            prompt: '', // Trim whitespace
-            response: modelResponses.item(i)?.innerHTML.trim() || '', // Handle potential null values
-          }
-        }
-        return {
-          prompt: userPrompts.item(i).innerText.trim(), // Trim whitespace
-          response: data.innerHTML.trim() || '', // Handle potential null values
-        }
-      })
-
-      bridge
-        .send({
-          event: 'chat.receiveChat',
-          to: 'background',
-          payload: { title, chat, id, url }, // Include chat array inside payload
-        })
-        .then(() => {})
-        .catch(() => {})
-    })
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    button.addEventListener('click', onClick)
 
     // Append the button to the body
     body.appendChild(button)

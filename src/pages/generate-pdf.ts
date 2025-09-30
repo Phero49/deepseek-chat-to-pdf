@@ -1,8 +1,11 @@
-import html2pdfmake from 'html-to-pdfmake'
-import pdfmake from 'pdfmake/build/pdfmake'
-import { type TDocumentDefinitions, type TFontDictionary } from 'pdfmake/interfaces'
-import * as vfs from '../fonts/vfs_fonts'
-import { elementToSVG, inlineResources } from 'dom-to-svg'
+/* eslint-disable @typescript-eslint/no-explicit-any */
+//import html2pdfmake from 'html-to-pdfmake'
+//import pdfmake from 'pdfmake/build/pdfmake'
+//import { type TDocumentDefinitions } from 'pdfmake/interfaces'
+import type { OutlineNode } from 'src/utils/utils'
+// import { getFont } from 'app/src-bex/utils/database'
+// import { Notify } from 'quasar'
+import html2canvas from 'html2canvas'
 
 // // Example of using it with KaTeX elements
 // function handleConversion() {
@@ -22,127 +25,213 @@ import { elementToSVG, inlineResources } from 'dom-to-svg'
 //     }
 // }
 
-export async function exportRenderedLatexToPdf() {
+export async function exportRenderedLatexToPdf(source?: string) {
   // Select the SVG element from the rendered LaTeX
-  const latexElementx = document.querySelectorAll('.ds-markdown-math')
+  const latexElements = document.querySelectorAll('.katex')
+  console.log(source, latexElements.length)
+  if (!(source == 'gemini')) {
+    // latexElements =
+    // }else{
+  }
 
-  for (const latexElement of latexElementx) {
+  for (const latexElement of latexElements) {
     if (!latexElement) {
       alert('No LaTeX found!')
       return
     }
-    const svgDocument = elementToSVG(latexElement)
-    await inlineResources(svgDocument.documentElement)
-    const svgString = new XMLSerializer().serializeToString(svgDocument)
-    console.log(svgString)
-    latexElement.innerHTML = svgString
-  }
-}
-pdfmake.vfs = vfs
-export async function generatePdf(html: HTMLElement, title: string) {
-  processCodeBlocks(html)
-  await exportRenderedLatexToPdf()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const content = html2pdfmake(html.innerHTML) as unknown as any[]
-  const fonts: TFontDictionary = {
-    Arial: {
-      normal: 'arial-normal.TTF',
-      bold: 'ARIALBD.TTF',
-      bolditalics: 'ARIALBI 1.TTF',
-      italics: 'ARIALI.TTF',
-    },
-    Times: {
-      normal: 'Times New Roman.ttf',
-      bold: 'Times New Roman - Bold.ttf',
-      bolditalics: 'Times New Roman - Bold Italic.ttf',
-      italics: 'Times New Roman - Italic.ttf',
-    },
-  }
-  pdfmake.fonts = fonts
-  const docDefinition: TDocumentDefinitions = {
-    content: [
-      // Promotional Page
-      {
-        text: 'Check Out My App Xulhub!',
-        style: 'header',
-        // Ensures the next content starts on a new page
-      },
-      {
-        text: [
-          {
-            text: 'Xulhub is a social education platform for sharing and discovering educational content. Join us at ',
-          },
-          {
-            text: 'https://xulhub.com!',
-            link: 'https://xulhub.com!',
-            style: { color: 'red' },
-          },
-        ],
-        style: 'subheader',
-        margin: [0, 10, 0, 20],
-        pageBreak: 'after', // Add some spacing
-      },
-      // Existing Content
-      ...content, // Spread the existing content after the promotional page
-    ],
-    defaultStyle: {
-      font: 'Times',
-      fontSize: 12,
-    },
-    styles: {
-      header: {
-        fontSize: 18,
-        bold: true,
-        color: 'blue',
-        alignment: 'center',
-      },
-      subheader: {
-        fontSize: 12,
-        alignment: 'center',
-        color: '#444', // Slightly darker gray
-      },
-    },
-  }
 
-  const pdf = pdfmake.createPdf(docDefinition as unknown as TDocumentDefinitions)
-  pdf.download(`${title}.pdf`)
-}
+    // Measure the LaTeX element
+    const rect = latexElement.getBoundingClientRect()
 
-function processCodeBlocks(html: HTMLElement) {
-  const banners = html.querySelectorAll<HTMLDivElement>('.md-code-block-banner-wrap')
-  banners.forEach((e) => {
-    e.style.display = 'none'
-  })
+    // Render LaTeX element into a canvas with html2canvas
+    const canvas = await html2canvas(latexElement as HTMLElement, {
+      scale: 0.8, // higher resolution
+      width: rect.width,
+      height: rect.height,
+    })
 
-  const codeBlocks = html.querySelectorAll<HTMLDivElement>('.md-code-block')
-  for (const block of codeBlocks) {
-    // Get computed styles for the block
+    // Convert canvas to PNG data URL
+    const dataUrl = canvas.toDataURL('image/png')
 
-    // Replace white or none with black or dark grey
-    block.style.color = '#333'
+    // Replace the LaTeX element content with an <img>
+    latexElement.innerHTML = ''
+    const img = document.createElement('img')
+    img.src = dataUrl
 
-    const pre = block.querySelector('pre')
+    // Ensure the image behaves like inline math
+    img.style.display = 'inline' // default inline behavior
+    img.style.verticalAlign = 'middle' // aligns nicely with surrounding text
+    img.style.height = rect.height + 'px' // match original height
 
-    if (pre == null) {
-      continue
-    }
+    latexElement.appendChild(img)
 
-    // Update <pre> styles
-    pre.style.color = '#333'
-    // Update <span> styles inside <pre>
-    const spans = pre.querySelectorAll('span')
-    for (const span of spans) {
-      const { color } = window.getComputedStyle(span)
-      span.style.color = replaceInvalidColor(color)
-    }
+    // Debug: log base64 PNG string
+    console.log(dataUrl)
   }
 }
 
-// Helper function to replace invalid colors
-function replaceInvalidColor(color: string): string {
-  // Check if the color is white, transparent, or none
-  if (color === 'white' || color === 'transparent' || color === 'none' || !color) {
-    return '#333' // Dark grey as a fallback
+// Function to map OutlineNode tree to pdfmake tocItems
+export function mapOutlineToPdfmake(nodes?: OutlineNode[]): any[] {
+  if (nodes == undefined) {
+    return []
   }
-  return color // Return the original color if valid
+  const result: any[] = []
+
+  function walk(node: OutlineNode) {
+    // Push the current node as a pdfmake heading with tocItem
+    result.push({
+      text: node.title,
+      style: 'header',
+      tocItem: { id: node.id },
+    })
+
+    // Recurse into children
+    node.children.forEach((child) => walk(child))
+  }
+
+  nodes.forEach((node) => walk(node))
+  console.log(result)
+
+  return result
 }
+
+// async function loadFontFiles(selectedFont: any) {
+//   const vfs: Record<string, string> = {}
+//   const formattedFont: Record<string, any> = {}
+//   const fontName = selectedFont.name
+//   formattedFont[fontName] = {}
+
+//   const promises = Object.entries(selectedFont.files).map(
+//     ([style, file]) =>
+//       new Promise<void>((resolve, reject) => {
+//         const fileObj = file as File
+//         const reader = new FileReader()
+//         reader.onload = () => {
+//           if (typeof reader.result === 'string') {
+//             const base64 = reader.result.split(',')[1] ?? ''
+//             vfs[fileObj.name] = base64
+//             formattedFont[fontName][style] = fileObj.name
+//             resolve()
+//           } else {
+//             reject(new Error('Failed to read font file'))
+//           }
+//         }
+//         reader.onerror = reject
+//         reader.readAsDataURL(fileObj)
+//       }),
+//   )
+
+//   await Promise.all(promises)
+
+//   pdfmake.vfs = vfs
+//   pdfmake.fonts = formattedFont
+
+//   return fontName
+// }
+// This function generates a PDF using Chrome's printing API in an extension
+export function generatePdf(
+  font: string,
+  html: HTMLElement,
+  title: string,
+  source?: string,
+  outline?: OutlineNode[],
+) {
+  // Step 1: Convert the HTML element to a printable page
+  // We'll use a hidden iframe to hold the content
+  const iframe = document.querySelector<HTMLIFrameElement>('#renderDocs')
+  console.log(source, outline, iframe)
+  if (iframe == undefined) {
+    return
+  }
+  iframe.style.position = 'fixed'
+  iframe.style.width = '100%'
+  iframe.style.height = '100%'
+  iframe.style.left = '-10000px' // off-screen
+  iframe.srcdoc = html.innerHTML
+  setTimeout(() => {
+    iframe.contentWindow?.print()
+  }, 3000)
+  // Apply custom font if provided
+  // if (font) {
+  //   const style = document.createElement('style');
+  //   style.innerHTML = `
+  //     @font-face {
+  //       font-family: 'CustomFont';
+  //       src: url(${font});
+  //     }
+  //     body { font-family: 'CustomFont'; }
+  //   `;
+  //   iframe.contentDocument?.head.appendChild(style);
+  // }
+
+  // Copy the HTML content into the iframe
+  //  iframe.contentDocument!.body.innerHTML = html.innerHTML
+
+  // Optional: add title or outline content
+  // if (title) {
+  //   const h1 = iframe.contentDocument!.createElement('h1')
+  //   h1.innerText = title
+  //   iframe.contentDocument!.body.prepend(h1)
+  // }
+
+  // Step 2: Use chrome.printing API to print without dialog
+  // This only works in Chrome Extensions
+  //const printJob: chrome.printing.SubmitJobRequest= {
+  // job:{
+  //     jobName: title || 'Document',
+  // pageRanges: [{ from: 1, to: 999 }],
+  // duplex: 'NO_DUPLEX',
+  // }
+}
+
+// return new Promise<void>((resolve, reject) => {
+//   chrome.printing.submitJob(printJob, (jobId) => {
+//     if (chrome.runtime.lastError) {
+//       reject(chrome.runtime.lastError)
+//     } else {
+//       console.log('Print job submitted:', jobId)
+//       // Clean up iframe after printing
+//       document.body.removeChild(iframe)
+//       resolve()
+//     }
+//   })
+// })
+
+// function processCodeBlocks(html: HTMLElement) {
+//   const banners = html.querySelectorAll<HTMLDivElement>('.md-code-block-banner-wrap')
+//   banners.forEach((e) => {
+//     e.style.display = 'none'
+//   })
+
+//   const codeBlocks = html.querySelectorAll<HTMLDivElement>('.md-code-block')
+//   for (const block of codeBlocks) {
+//     // Get computed styles for the block
+
+//     // Replace white or none with black or dark grey
+//     block.style.color = '#333'
+
+//     const pre = block.querySelector('pre')
+
+//     if (pre == null) {
+//       continue
+//     }
+
+//     // Update <pre> styles
+//     pre.style.color = '#333'
+//     // Update <span> styles inside <pre>
+//     const spans = pre.querySelectorAll('span')
+//     for (const span of spans) {
+//       const { color } = window.getComputedStyle(span)
+//       span.style.color = replaceInvalidColor(color)
+//     }
+//   }
+// }
+
+// // Helper function to replace invalid colors
+// function replaceInvalidColor(color: string): string {
+//   // Check if the color is white, transparent, or none
+//   if (color === 'white' || color === 'transparent' || color === 'none' || !color) {
+//     return '#333' // Dark grey as a fallback
+//   }
+//   return color // Return the original color if valid
+// }

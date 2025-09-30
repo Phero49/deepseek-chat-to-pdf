@@ -4,7 +4,14 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/',
     component: () => import('layouts/MainLayout.vue'),
-    children: [{ path: '/:chatId', component: () => import('pages/IndexPage.vue') }],
+    children: [{ path: '/', component: () => import('pages/IndexPage.vue') }],
+  },
+
+  {
+    name: 'view-chat',
+    path: '/chat/:chatId',
+    component: () => import('pages/ViewChatPage.vue'),
+    props: true,
   },
 
   // Always leave this as last one,
