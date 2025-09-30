@@ -25,7 +25,12 @@
 
     "content_scripts": [
       {
-        "matches": ["https://chat.deepseek.com/*", "https://chatgpt.com/*"],
+        "matches": [
+          "https://chat.deepseek.com/*",
+          "https://chatgpt.com/*",
+          "https://chat.qwen.ai/*",
+          "https://gemini.google.com/app/*"
+        ],
         "css": ["assets/content.css"],
         "js": ["my-content-script.ts"]
       }
