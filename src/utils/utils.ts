@@ -33,7 +33,7 @@ export async function getContentAsMarkdown(
   try {
     const holders = await unrenderLatex(HTMLContent, source)
 
-    console.log(holders)
+    //console.log(holders)
     const turndownService = new TurndownService()
     //turndownService.use(gfm.gfm)
     turndownService.use(turndownRawCodePlugin)
@@ -85,7 +85,7 @@ function unrenderLatex(html: HTMLElement, source: string): Promise<Record<string
           mathData = `\\( ${clean} \\)`
         }
       }
-      console.log(mathData)
+      // console.log(mathData)
       // Safely handle parent element
       let parent = el.parentElement
       if (parent) {
@@ -99,7 +99,7 @@ function unrenderLatex(html: HTMLElement, source: string): Promise<Record<string
         parent = parent?.parentElement as HTMLElement
         if (parent != null) {
           parent.innerHTML = mathData
-          console.log(parent?.innerHTML)
+          // console.log(parent?.innerHTML)
         }
       }
     })
@@ -140,29 +140,34 @@ export function preserveLatex(md: any) {
 
     // Match \[...\] or \(...\)
     const match = src.match(/^\\\[([\s\S]+?)\\\]/) || src.match(/^\\\(([\s\S]+?)\\\)/)
-
     if (!match) return false
 
     if (!silent) {
       const token = state.push('math_preserve', '', 0)
-      token.content = match[0] // keep full raw string (\[...\] or \(...\))
+      token.content = match[0] // keep full raw string p(\[...\] or \(...\))
     }
 
     state.pos += match[0].length
     return true
   })
 
-  // Renderer: convert LaTeX delimiters to $$ / $ and output data-math
+  // Renderer: detect block vs inline, normalize, and wrap
   md.renderer.rules.math_preserve = function (tokens: any, idx: number) {
     let raw = tokens[idx].content as string
-
-    // Normalize delimiters
-    if (raw.startsWith('\\[') && raw.endsWith('\\]')) {
-      raw = raw.replace(/^\\\[/, '$$').replace(/\\\]$/, '$$')
+    // console.log(raw.trim().startsWith('\\['), raw.trim().endsWith('\\]'), '------------->')
+    if (raw.trim().startsWith('\\[') && raw.trim().endsWith('\\]')) {
+      raw = raw.replace(/^\\+\[/, '$$$$').replace(/\\+\]$/, '$$$$') // block math
+      // console.log('block', raw)
+    } else if (/^\\+\([\s\S]*\\+\)$/.test(raw)) {
+      raw = raw.replace(/^\\+\(/, '$').replace(/\\+\)$/, '$') // inline math
     }
+    // Detect block vs inline for CSS class
+    const isBlock = raw.startsWith('$$')
+    //  console.log(raw, isBlock)
 
-    // Output both visible content and data-math attribute
-    return `<span data-math="${raw}">${raw}</span>`
+    const className = isBlock ? 'katex-display' : 'katex-inline'
+
+    return `<span class="${className}" data-math="${raw}">${raw}</span>`
   }
 }
 
@@ -213,7 +218,7 @@ export function processMd({
 }) {
   // setup markdown renderer
   const md = MarkdownIt()
-  console.log(source)
+  console.log(text)
   if (source == 'chatgpt' || source == 'deepseek') {
     md.use(preserveLatex)
   }
@@ -253,6 +258,7 @@ export function processMd({
 `
 
     wrapper.id = id
+    wrapper.classList.add('user-prompt')
     wrapper.setAttribute('data-prompt-index', String(usedIndex))
 
     // insert parsed content
@@ -275,15 +281,17 @@ export function processMd({
     setTimeout(() => {
       renderMathInElement(wrapper, {
         delimiters: [
-          { left: '$$', right: '$$', display: true },
-          { left: '$', right: '$', display: false },
           { left: '\\(', right: '\\)', display: false },
           { left: '\\[', right: '\\]', display: true },
+          { left: '$$', right: '$$', display: true },
+          { left: '$', right: '$', display: false },
         ],
+        displayMode: true,
+        output: 'htmlAndMathml',
         throwOnError: false,
         ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'], // skip code blocks
       })
-      console.log('should render')
+      // console.log('should render')
     }, 300)
   }
 }

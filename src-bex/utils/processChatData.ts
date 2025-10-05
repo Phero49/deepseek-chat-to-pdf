@@ -84,7 +84,7 @@ export interface Fragment {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function processDeepseekChat(d: any) {
   const data = d as DeepSeekChat
-  console.log(data.chat.data.chat_messages || 'invalid', 'this chat')
+  // console.log(data.chat.data.chat_messages || 'invalid', 'this chat')
   const newChat: GeneralChat = {
     id: data.id,
     messages: data.chat.data.chat_messages.map((v) => {

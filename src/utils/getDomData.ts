@@ -25,7 +25,7 @@ export function getChatGptData(chatId: string, table: string, databaseName: stri
       // Get the database instance.
       const db = openRequest.result
 
-      console.log(db.objectStoreNames, 'names')
+      //    console.log(db.objectStoreNames, 'names')
       // Create a read-only transaction on the specified table.
       const transaction = db.transaction(table, 'readonly')
 
@@ -111,6 +111,6 @@ export async function processQwen() {
       })
     }
   }
-  console.log(messageBody)
+  //console.log(messageBody)
   return messageBody
 }

@@ -1,7 +1,7 @@
 {
   "name": "AI-chat-to-pdf",
-  "version": "0.0.4",
-  "description": "Export DeepSeek and ChatGPT chats to PDF with editing, table support, and LaTeX formatting",
+  "version": "0.0.5",
+  "description": "4-in-1 AI chat to PDF: Export ChatGPT, DeepSeek, Qwen, and Gemini chats with editing, table support, and LaTeX formatting",
   "productName": "AI-chat-to-pdf",
   "author": "Phero49 <pheromkuka49@gmail.com>",
   "type": "module",
@@ -11,7 +11,8 @@
     "format": "prettier --write \"**/*.{js,ts,vue,scss,html,md,json}\" --ignore-path .gitignore",
     "test": "echo \"No test specified\" && exit 0",
     "dev": "quasar dev -m bex -T firefox",
-    "build": "quasar build",
+    "build:chrome": "quasar build -m bex -T chrome",
+    "build:firefox": "quasar build -m bex -T firefox",
     "postinstall": "quasar prepare"
   },
   "dependencies": {

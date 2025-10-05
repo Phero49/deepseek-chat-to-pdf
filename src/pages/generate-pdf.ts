@@ -1,11 +1,14 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 //import html2pdfmake from 'html-to-pdfmake'
-//import pdfmake from 'pdfmake/build/pdfmake'
-//import { type TDocumentDefinitions } from 'pdfmake/interfaces'
+import pdfmake from 'pdfmake/build/pdfmake'
+import type { Content } from 'pdfmake/interfaces'
+import { type TDocumentDefinitions } from 'pdfmake/interfaces'
 import type { OutlineNode } from 'src/utils/utils'
 // import { getFont } from 'app/src-bex/utils/database'
 // import { Notify } from 'quasar'
 import html2canvas from 'html2canvas'
+import { text } from 'stream/consumers'
 
 // // Example of using it with KaTeX elements
 // function handleConversion() {
@@ -28,7 +31,7 @@ import html2canvas from 'html2canvas'
 export async function exportRenderedLatexToPdf(source?: string) {
   // Select the SVG element from the rendered LaTeX
   const latexElements = document.querySelectorAll('.katex')
-  console.log(source, latexElements.length)
+  //  console.log(source, latexElements.length)
   if (!(source == 'gemini')) {
     // latexElements =
     // }else{
@@ -90,148 +93,156 @@ export function mapOutlineToPdfmake(nodes?: OutlineNode[]): any[] {
   }
 
   nodes.forEach((node) => walk(node))
-  console.log(result)
+  //console.log(result)
 
   return result
 }
 
-// async function loadFontFiles(selectedFont: any) {
-//   const vfs: Record<string, string> = {}
-//   const formattedFont: Record<string, any> = {}
-//   const fontName = selectedFont.name
-//   formattedFont[fontName] = {}
+async function loadFontFiles(selectedFont: any) {
+  const vfs: Record<string, string> = {}
+  const formattedFont: Record<string, any> = {}
+  const fontName = selectedFont.name
+  formattedFont[fontName] = {}
 
-//   const promises = Object.entries(selectedFont.files).map(
-//     ([style, file]) =>
-//       new Promise<void>((resolve, reject) => {
-//         const fileObj = file as File
-//         const reader = new FileReader()
-//         reader.onload = () => {
-//           if (typeof reader.result === 'string') {
-//             const base64 = reader.result.split(',')[1] ?? ''
-//             vfs[fileObj.name] = base64
-//             formattedFont[fontName][style] = fileObj.name
-//             resolve()
-//           } else {
-//             reject(new Error('Failed to read font file'))
-//           }
-//         }
-//         reader.onerror = reject
-//         reader.readAsDataURL(fileObj)
-//       }),
-//   )
+  const promises = Object.entries(selectedFont.files).map(
+    ([style, file]) =>
+      new Promise<void>((resolve, reject) => {
+        const fileObj = file as File
+        const reader = new FileReader()
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            const base64 = reader.result.split(',')[1] ?? ''
+            vfs[fileObj.name] = base64
+            formattedFont[fontName][style] = fileObj.name
+            resolve()
+          } else {
+            reject(new Error('Failed to read font file'))
+          }
+        }
+        reader.onerror = reject
+        reader.readAsDataURL(fileObj)
+      }),
+  )
 
-//   await Promise.all(promises)
+  await Promise.all(promises)
 
-//   pdfmake.vfs = vfs
-//   pdfmake.fonts = formattedFont
+  pdfmake.vfs = vfs
+  pdfmake.fonts = formattedFont
 
-//   return fontName
-// }
+  return fontName
+}
 // This function generates a PDF using Chrome's printing API in an extension
-export function generatePdf(
+
+// eslint-disable-next-line @typescript-eslint/require-await
+export async function generatePdf(
   font: string,
   html: HTMLElement,
-  title: string,
+  title?: string,
   source?: string,
   outline?: OutlineNode[],
 ) {
   // Step 1: Convert the HTML element to a printable page
   // We'll use a hidden iframe to hold the content
-  const iframe = document.querySelector<HTMLIFrameElement>('#renderDocs')
-  console.log(source, outline, iframe)
-  if (iframe == undefined) {
-    return
+  if (source) {
+    //    void exportRenderedLatexToPdf(source)
   }
+
+  const iframe = document.querySelector<HTMLIFrameElement>('#renderDocs')
+  if (!iframe) return
+
+  // Prepare iframe
   iframe.style.position = 'fixed'
   iframe.style.width = '100%'
   iframe.style.height = '100%'
-  iframe.style.left = '-10000px' // off-screen
-  iframe.srcdoc = html.innerHTML
+  iframe.style.left = '-10000px' // keep off-screen
+  const headContent = document.head.innerHTML.replace(/<script[\s\S]*?<\/script>/gi, '')
+  //iframe.srcdoc = html.innerHTML
+  console.log(headContent)
+  const printContent = `<!DOCTYPE html>
+<html>
+<head>
+${headContent}
+</head>
+<body>${html.innerHTML}</body>
+</html>`
+
+  iframe.srcdoc = printContent
   setTimeout(() => {
+    iframe.contentWindow?.focus()
     iframe.contentWindow?.print()
-  }, 3000)
-  // Apply custom font if provided
-  // if (font) {
-  //   const style = document.createElement('style');
-  //   style.innerHTML = `
-  //     @font-face {
-  //       font-family: 'CustomFont';
-  //       src: url(${font});
-  //     }
-  //     body { font-family: 'CustomFont'; }
-  //   `;
-  //   iframe.contentDocument?.head.appendChild(style);
-  // }
+  }, 2000)
+  iframe.onload = async () => {
+    const doc = iframe.contentDocument
+    console.log(doc?.body.innerHTML)
+    if (!doc) return
 
-  // Copy the HTML content into the iframe
-  //  iframe.contentDocument!.body.innerHTML = html.innerHTML
+    // Wait for all fonts to load to avoid fallback fonts
+    if (doc.fonts) {
+      await doc.fonts.ready
+    }
 
-  // Optional: add title or outline content
-  // if (title) {
-  //   const h1 = iframe.contentDocument!.createElement('h1')
-  //   h1.innerText = title
-  //   iframe.contentDocument!.body.prepend(h1)
-  // }
+    // Optional: force print styles to match screen
+    //   const style = doc.createElement('style')
+    //   style.textContent = `
+    //   @media print {
+    //     body {
+    //       font-family: sans-serif !important;
+    //       line-height: 1.5 !important;
+    //       margin: 0 !important;
+    //     }
+    //     svg, canvas {
+    //       width: auto !important;
+    //       height: auto !important;
+    //     }
+    //     pre, code {
+    //       white-space: pre-wrap;
+    //     }
+    //   }
+    // `
+    //doc.head.appendChild(style)
 
-  // Step 2: Use chrome.printing API to print without dialog
-  // This only works in Chrome Extensions
-  //const printJob: chrome.printing.SubmitJobRequest= {
-  // job:{
-  //     jobName: title || 'Document',
-  // pageRanges: [{ from: 1, to: 999 }],
-  // duplex: 'NO_DUPLEX',
-  // }
+    // Focus and trigger print
+    // iframe.contentWindow?.focus()
+    // iframe.contentWindow?.print()
+  }
+
+  // await loadFontFiles(font)
+  const docDefinition: TDocumentDefinitions = {
+    content: [],
+  }
+  const mappedDoc = Array.from(html.children).forEach((el) => {
+    // if (el.classList.contains('user-prompt')) {
+    //   ;(docDefinition.content as Content[]).push(
+    //     {
+    //       table: {
+    //         widths: ['*'],
+    //         body: [
+    //           [
+    //             {
+    //               text: el.textContent,
+    //               color: '#333',
+    //               margin: [6, 4, 6, 4], // inner spacing – acts like padding
+    //             },
+    //           ],
+    //         ],
+    //       },
+    //       layout: {
+    //         fillColor: '#ffeeba', // background for the cell
+    //         hLineWidth: () => 0,
+    //         vLineWidth: () => 0,
+    //       },
+    //     },
+    //     { text: '', margin: [10, 10] },
+    //   )
+    // } else if (el.classList.contains('response-block')) {
+    //   Array.from(el.children).forEach((cEl) => {
+    //     if (cEl.tagName == 'P') {
+    //       console.log(cEl)
+    //     }
+    //   })
+    // }
+    return docDefinition
+  })
+
+  //pdfmake.createPdf(docDefinition).download(title + '.pdf')
 }
-
-// return new Promise<void>((resolve, reject) => {
-//   chrome.printing.submitJob(printJob, (jobId) => {
-//     if (chrome.runtime.lastError) {
-//       reject(chrome.runtime.lastError)
-//     } else {
-//       console.log('Print job submitted:', jobId)
-//       // Clean up iframe after printing
-//       document.body.removeChild(iframe)
-//       resolve()
-//     }
-//   })
-// })
-
-// function processCodeBlocks(html: HTMLElement) {
-//   const banners = html.querySelectorAll<HTMLDivElement>('.md-code-block-banner-wrap')
-//   banners.forEach((e) => {
-//     e.style.display = 'none'
-//   })
-
-//   const codeBlocks = html.querySelectorAll<HTMLDivElement>('.md-code-block')
-//   for (const block of codeBlocks) {
-//     // Get computed styles for the block
-
-//     // Replace white or none with black or dark grey
-//     block.style.color = '#333'
-
-//     const pre = block.querySelector('pre')
-
-//     if (pre == null) {
-//       continue
-//     }
-
-//     // Update <pre> styles
-//     pre.style.color = '#333'
-//     // Update <span> styles inside <pre>
-//     const spans = pre.querySelectorAll('span')
-//     for (const span of spans) {
-//       const { color } = window.getComputedStyle(span)
-//       span.style.color = replaceInvalidColor(color)
-//     }
-//   }
-// }
-
-// // Helper function to replace invalid colors
-// function replaceInvalidColor(color: string): string {
-//   // Check if the color is white, transparent, or none
-//   if (color === 'white' || color === 'transparent' || color === 'none' || !color) {
-//     return '#333' // Dark grey as a fallback
-//   }
-//   return color // Return the original color if valid
-// }

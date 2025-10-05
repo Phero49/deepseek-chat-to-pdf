@@ -37,7 +37,7 @@
         <q-item
           clickable
           @click="activeTab = 'fonts'"
-          dissable
+          disable
           :class="{ 'text-primary text-weight-bold ': activeTab == 'fonts' }"
         >
           <q-item-section top avatar>
@@ -52,47 +52,59 @@
 
     <q-page-container>
       <q-page padding class="bg-grey-2">
-        <div style="max-width: 550px">
-          <div class="row q-mb-md justify-between q-py-md">
-            <div class="text-capitalize text-h5 text-bold">
-              {{ activeTab }}
-            </div>
-            <div>
-              <q-btn
-                color="primary"
-                icon="add"
-                v-if="activeTab == 'collections'"
-                label="new collection"
-                @click="newCollectionDialog = true"
-                no-caps
-                unelevated
-              />
+        <div class="row">
+          <div class="col-8">
+            <template v-if="$route.name == 'collection'">
+              <router-view></router-view>
+            </template>
+            <div v-else style="max-width: 550px; width: 100%">
+              <div class="row q-mb-md justify-between q-py-md">
+                <div class="text-capitalize text-h5 text-bold">
+                  {{ activeTab }}
+                </div>
+                <div>
+                  <q-btn
+                    color="primary"
+                    icon="add"
+                    v-if="activeTab == 'collections'"
+                    label="new collection"
+                    @click="newCollectionDialog = true"
+                    no-caps
+                    unelevated
+                  />
 
-              <q-btn
-                color="primary"
-                icon="add"
-                v-if="activeTab == 'fonts'"
-                label="upload font"
-                @click="addNewFont"
-                no-caps
-                unelevated
-              />
+                  <q-btn
+                    color="primary"
+                    icon="add"
+                    v-if="activeTab == 'fonts'"
+                    label="upload font"
+                    @click="addNewFont"
+                    no-caps
+                    unelevated
+                  />
+                </div>
+              </div>
+
+              <q-separator spaced class="q-my-md" />
+
+              <template v-if="activeTab == 'recent'"> <ChatList :collection="false" /> </template
+              ><template v-else-if="activeTab == 'collections'">
+                <CollectionList ref="correctionRef" /> </template
+              ><template v-else-if="activeTab == 'fonts'">
+                <FontList />
+              </template>
             </div>
           </div>
-
-          <q-separator spaced class="q-my-md" />
-          <template v-if="activeTab == 'recent'"> <ChatList /> </template
-          ><template v-if="activeTab == 'collections'"> <CollectionList /> </template
-          ><template v-if="activeTab == 'fonts'">
-            <FontList />
-          </template>
+          <div class="col-4 column items-end">
+            <AdIframe />
+          </div>
         </div>
       </q-page>
     </q-page-container>
     <q-dialog v-model="newCollectionDialog">
       <q-card style="max-width: 580x; width: 100%">
-        <div class="text-center">New collections</div>
-        <q-card-section class="row items-center">
+        <div class="text-center text-subtitle1 q-py-md">New collections</div>
+        <q-card-section>
           <q-input v-model="collectionName" type="text" label="collection" />
         </q-card-section>
         <q-card-actions align="right">
@@ -103,8 +115,8 @@
     </q-dialog>
     <q-dialog v-model="addFonts" persistent>
       <q-card style="max-width: 580px; width: 100%">
-        <q-card-section class="row items-center">
-          <q-form style="width: 100%" @submit="newCollection" class="q-gutter-md">
+        <q-card-section>
+          <q-form style="width: 100%" @submit="addFontTodb" class="q-gutter-md">
             <q-input v-model="fontName" type="text" stack-label label="Font family name" />
             <div v-for="(_, key) in fonts" :key="key">
               <div class="text-subtitle2 text-capitalize text-grey-8">
@@ -130,10 +142,11 @@ import { reactive, ref } from 'vue'
 import { symRoundedBrandFamily } from '@quasar/extras/material-symbols-rounded'
 import ChatList from '../components/ChatList.vue'
 import CollectionList from '../components/CollectionList.vue'
-import { addChatFont, type FontFiles } from 'app/src-bex/utils/database'
+import { addChatFont, createCollection, type FontFiles } from 'app/src-bex/utils/database'
 import { useQuasar } from 'quasar'
 import FontList from 'src/components/fontList.vue'
 import { useRouter } from 'vue-router'
+import AdIframe from 'src/components/adIframe.vue'
 // import { type ChatItem } from 'app'
 // import { useRouter } from 'vue-router'
 
@@ -152,7 +165,7 @@ const fonts = reactive<FontFiles>({
 
   italicBold: null,
 })
-async function newCollection() {
+async function addFontTodb() {
   if (fontName.value == '') {
     $q.notify({ message: ' font name is missing', color: 'negative' })
 
@@ -185,6 +198,17 @@ async function newCollection() {
 
     console.log(error)
   }
+}
+const correctionRef = ref()
+async function newCollection() {
+  if (collectionName.value.length == 0) {
+    $q.notify({ message: 'collection name  is missing ', type: 'negative' })
+    return
+  }
+  const id = crypto.randomUUID()
+  await createCollection({ name: collectionName.value, id })
+  correctionRef.value.addToCollections({ name: collectionName.value, id: id })
+  $q.notify({ message: 'collection Created', type: 'positive' })
 }
 //type FontsStyles = 'bold' | 'normal' | 'italic' | 'italicBold'
 

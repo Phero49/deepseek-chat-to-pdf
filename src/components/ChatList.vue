@@ -20,7 +20,12 @@
               flat
               size="sm"
               :icon="symRoundedDriveFolderUpload"
-              @click.stop="addToCollection = true"
+              @click.stop="
+                () => {
+                  addToCollection = true
+                  selectedChat = chat
+                }
+              "
             >
               <q-tooltip> add to collection </q-tooltip></q-btn
             >
@@ -48,14 +53,20 @@
           option-value="id"
           use-input
           @filter="filterFn"
-        />
+        >
+        </q-select>
       </q-card-section>
+      <q-card-actions vertical align="center">
+        <q-btn color="primary" flat label="Save To Collection" @click="save" />
+        <q-btn flat color="negative" label="Cancel" v-close-popup />
+      </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
 
 <script lang="ts" setup>
 import {
+  addChatToCollection,
   type Collection,
   deleteChat,
   getCollectionList,
@@ -66,15 +77,19 @@ import chatGptICon from '../assets/ais/chatgpt.svg'
 import qwenICon from '../assets/ais/qwen.png'
 import deepseekICon from '../assets/ais/deepseek.svg'
 import geminiICon from '../assets/ais/gemini.png'
-import { onBeforeMount, ref } from 'vue'
+import { computed, onBeforeMount, type Ref, ref } from 'vue'
 import { QSelect, useQuasar } from 'quasar'
 import { symRoundedDriveFolderUpload } from '@quasar/extras/material-symbols-rounded'
 const $q = useQuasar()
-const recentChats = ref<RecentChat[]>()
+const props = withDefaults(defineProps<{ chatsList?: RecentChat[]; collection: boolean }>(), {
+  collection: false,
+})
+const recentChats = props.collection ? computed(() => props.chatsList) : ref<RecentChat[]>()
 const addToCollection = ref(false)
-const searchCollection = ref('')
+const searchCollection = ref<{ name: string; id: string }>()
+const selectedChat = ref<RecentChat>()
 async function loadRecent() {
-  recentChats.value = await getRecentChats((recentChats.value || []).length)
+  ;(recentChats as Ref<RecentChat[]>).value = await getRecentChats((recentChats.value || []).length)
 }
 const icons = {
   chatgpt: chatGptICon,
@@ -89,6 +104,18 @@ function deleteChatFun(id: string, index: number) {
   $q.notify({ message: 'chat deleted' })
 }
 
+function save() {
+  try {
+    if (selectedChat.value == undefined || searchCollection.value == undefined) {
+      return
+    }
+    void addChatToCollection(selectedChat.value.id, searchCollection.value.id)
+    $q.notify({ message: 'chat added to collection' })
+  } catch (e) {
+    console.log(e)
+    $q.notify({ message: 'filed to add to collection', type: 'negative' })
+  }
+}
 const collections = ref<Collection[]>([])
 
 const filteredCollection = ref<Collection[]>([])
@@ -98,7 +125,9 @@ async function getCollectionsList() {
 }
 
 onBeforeMount(() => {
-  void loadRecent()
+  if (props.collection == false) {
+    void loadRecent()
+  }
 })
 
 function filterFn(

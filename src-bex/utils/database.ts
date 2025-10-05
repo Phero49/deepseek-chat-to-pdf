@@ -251,7 +251,7 @@ export async function openDBWrapper() {
 
       if (!db.objectStoreNames.contains('fonts')) {
         db.createObjectStore('fonts', { keyPath: 'id' })
-        void addDefaultFont()
+        void (async () => await addDefaultFont())()
       }
     },
   })
@@ -271,7 +271,7 @@ export async function createCollection(collection: Collection) {
   const tx = db.transaction('collections', 'readwrite')
   const store = tx.objectStore('collections')
 
-  const request = store.put(collection) // Add or update
+  const request = store.put({ ...collection, chatIds: [] }) // Add or update
   return new Promise<void>((resolve, reject) => {
     request.onsuccess = () => resolve()
     request.onerror = () => reject(request.error)
@@ -281,97 +281,125 @@ export async function createCollection(collection: Collection) {
 // --- Add a chat to a collection ---
 export async function addChatToCollection(chatId: string, collectionId: string) {
   const db = await openDBWrapper()
-  const tx = db.transaction('chats', 'readwrite')
-  const store = tx.objectStore('chats')
+  const tx = db.transaction('collections', 'readwrite')
+  const store = tx.objectStore('collections')
 
-  const getRequest = store.get(chatId)
-  return new Promise<void>((resolve, reject) => {
-    getRequest.onsuccess = () => {
-      const chat = getRequest.result
-      if (!chat) return reject(new Error('Chat not found'))
+  const getRequest = store.get(collectionId)
+  getRequest.onsuccess = () => {
+    const collection = getRequest.result
 
-      chat.collectionId = collectionId
-      const putRequest = store.put(chat)
-      putRequest.onsuccess = () => resolve()
-      putRequest.onerror = () => reject(putRequest.error)
+    // Add chatId if not already present
+    if (!collection.chatIds.includes(chatId)) {
+      collection.chatIds.push(chatId)
     }
-    getRequest.onerror = () => reject(getRequest.error)
-  })
+
+    const putRequest = store.put(collection)
+    putRequest.onsuccess = () => {
+      console.log(`Chat ${chatId} added to collection ${collectionId}`)
+    }
+    putRequest.onerror = () => {
+      console.error('Error updating collection:', putRequest.error)
+    }
+  }
+
+  getRequest.onerror = () => {
+    console.error('Error fetching collection:', getRequest.error)
+  }
 }
 
 // --- Remove a chat from a collection (does not delete chat) ---
-export async function removeChatFromCollection(chatId: string) {
+export async function removeChatFromCollection(collectionId: string, chatId: string) {
   const db = await openDBWrapper()
-  const tx = db.transaction('chats', 'readwrite')
-  const store = tx.objectStore('chats')
+  const tx = db.transaction('collections', 'readwrite')
+  const store = tx.objectStore('collections')
 
-  const getRequest = store.get(chatId)
-  return new Promise<void>((resolve, reject) => {
-    getRequest.onsuccess = () => {
-      const chat = getRequest.result
-      if (!chat) return reject(new Error('Chat not found'))
-
-      delete chat.collectionId
-      const putRequest = store.put(chat)
-      putRequest.onsuccess = () => resolve()
-      putRequest.onerror = () => reject(putRequest.error)
+  const getRequest = store.get(collectionId)
+  getRequest.onsuccess = () => {
+    const collection = getRequest.result
+    if (!collection) {
+      console.warn(`Collection ${collectionId} not found`)
+      return
     }
-    getRequest.onerror = () => reject(getRequest.error)
-  })
+
+    // Remove chatId if it exists
+    const index = collection.chatIds.indexOf(chatId)
+    if (index > -1) {
+      collection.chatIds.splice(index, 1)
+    } else {
+      console.warn(`Chat ${chatId} not in collection ${collectionId}`)
+    }
+
+    const putRequest = store.put(collection)
+    putRequest.onsuccess = () => {
+      console.log(`Chat ${chatId} removed from collection ${collectionId}`)
+    }
+    putRequest.onerror = () => {
+      console.error('Error updating collection:', putRequest.error)
+    }
+  }
+
+  getRequest.onerror = () => {
+    console.error('Error fetching collection:', getRequest.error)
+  }
 }
 
 // --- Delete a collection and all chats linked to it ---
+// --- Delete a collection (does NOT delete chats linked to it) ---
 export async function deleteCollection(collectionId: string) {
   const db = await openDBWrapper()
-  const tx = db.transaction(['chats', 'collections'], 'readwrite')
-  const chatsStore = tx.objectStore('chats')
-  const collectionsStore = tx.objectStore('collections')
+  const tx = db.transaction('collections', 'readwrite')
+  const store = tx.objectStore('collections')
 
-  return new Promise<void>((resolve, reject) => {
-    const cursorRequest = chatsStore.openCursor()
-    cursorRequest.onsuccess = (event: any) => {
-      const cursor: IDBCursorWithValue | null = event.target.result
-      if (!cursor) {
-        // Delete the collection itself
-        const delRequest = collectionsStore.delete(collectionId)
-        delRequest.onsuccess = () => resolve()
-        delRequest.onerror = () => reject(delRequest.error)
-        return
-      }
-
-      if (cursor.value.collectionId === collectionId) {
-        cursor.delete() // delete chat
-      }
-      cursor.continue()
-    }
-
-    cursorRequest.onerror = () => reject(cursorRequest.error)
-  })
+  const deleteRequest = store.delete(collectionId)
+  deleteRequest.onsuccess = () => {
+    console.log(`Collection ${collectionId} deleted`)
+  }
+  deleteRequest.onerror = () => {
+    console.error('Error deleting collection:', deleteRequest.error)
+  }
 }
 
 // --- Get all chats in a collection ---
 export async function getCollectionItems(collectionId: string): Promise<any[]> {
   const db = await openDBWrapper()
-  const tx = db.transaction('chats', 'readonly')
-  const store = tx.objectStore('chats')
+  const tx = db.transaction(['collections', 'chats'], 'readonly')
+  const collectionsStore = tx.objectStore('collections')
+  const chatsStore = tx.objectStore('chats')
 
-  const items: any[] = []
   return new Promise((resolve, reject) => {
-    const cursorRequest = store.openCursor()
-    cursorRequest.onsuccess = (event: any) => {
-      const cursor: IDBCursorWithValue | null = event.target.result
-      if (!cursor) {
+    const getCollectionRequest = collectionsStore.get(collectionId)
+    getCollectionRequest.onsuccess = () => {
+      const collection = getCollectionRequest.result
+      if (!collection || !Array.isArray(collection.chatIds)) {
+        resolve([]) // no chats in collection
+        return
+      }
+
+      const items: any[] = []
+      let remaining = collection.chatIds.length
+      if (remaining === 0) {
         resolve(items)
         return
       }
 
-      if (cursor.value.collectionId === collectionId) {
-        items.push(cursor.value)
-      }
-
-      cursor.continue()
+      collection.chatIds.forEach((chatId: string) => {
+        const getChatRequest = chatsStore.get(chatId)
+        getChatRequest.onsuccess = () => {
+          if (getChatRequest.result) {
+            const { title, source, id, url } = getChatRequest.result
+            items.push({ title, source, id, url })
+          }
+          remaining--
+          if (remaining === 0) resolve(items)
+        }
+        getChatRequest.onerror = () => {
+          remaining--
+          if (remaining === 0) resolve(items)
+        }
+      })
     }
-    cursorRequest.onerror = () => reject(cursorRequest.error)
+
+    getCollectionRequest.onerror = () => reject(getCollectionRequest.error)
   })
 }
 

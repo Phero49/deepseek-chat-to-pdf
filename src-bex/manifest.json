@@ -8,9 +8,14 @@
       "128": "icons/icon-128x128.png"
     },
 
-    "permissions": ["storage", "tabs", "unlimitedStorage", "activeTab", "scripting"],
+    "permissions": ["storage", "unlimitedStorage", "activeTab"],
 
-    "host_permissions": ["*://*/*"],
+    "host_permissions": [
+      "https://chat.deepseek.com/*",
+      "https://chatgpt.com/*",
+      "https://chat.qwen.ai/*",
+      "https://gemini.google.com/app/*"
+    ],
     "content_security_policy": {
       "extension_pages": "script-src 'self'; object-src 'self';"
     },

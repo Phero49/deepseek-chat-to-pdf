@@ -1,6 +1,6 @@
 <template>
   <q-layout view="hHh LpR fFf">
-    <q-header elevated class="bg-white text-grey-10" height-hint="98">
+    <q-header elevated class="bg-white text-grey-10" height-hint="98" style="z-index: 500">
       <div class="row justify-between q-my-xs items-center">
         <div class="row items-center">
           <q-btn icon="arrow_back" flat dense @click="$router.back()" />
@@ -11,7 +11,14 @@
           </div>
         </div>
         <q-card-actions>
-          <q-btn color="primary" icon="download" label="Download" @click="startConverting" />
+          <q-btn unelevated no-caps color="red-5" label="Export Tips" @click="openPrintTips" />
+          <q-btn
+            unelevated
+            color="primary"
+            icon="download"
+            label="Download"
+            @click="startConverting"
+          />
         </q-card-actions>
       </div>
 
@@ -109,6 +116,58 @@
       </q-page>
     </q-page-container>
   </q-layout>
+
+  <q-dialog v-model="showPrintTips" persistent>
+    <q-card style="max-width: 700px; width: 100%">
+      <!-- Dialog Header -->
+      <q-card-section class="row items-center justify-between">
+        <div class="text-h6">Printing Tips</div>
+        <q-btn icon="close" flat round dense @click="showPrintTips = false" />
+      </q-card-section>
+
+      <!-- Dialog Body -->
+      <q-card-section class="q-pt-none">
+        <p>
+          If your exported PDF shows extra headers/footers or missing background colors, follow the
+          steps below for your browser.
+        </p>
+
+        <div class="q-mb-md">
+          <div class="text-subtitle1 q-mb-xs">Chromium-based browsers (Chrome, Edge, Brave)</div>
+          <ol class="q-pl-md">
+            <li>when the print dialog opens</li>
+            <li>Click <b>More settings</b> in the left panel.</li>
+            <li>Uncheck <b>Headers and footers</b> to remove date, URL, and page numbers.</li>
+            <li>
+              Check <b>Background graphics</b> (sometimes shown as "Background colors and images")
+              to include chat colors and highlights.
+            </li>
+          </ol>
+        </div>
+
+        <div class="q-mb-md">
+          <div class="text-subtitle1 q-mb-xs">Firefox</div>
+          <ol class="q-pl-md">
+            <li>when the print dialog opens</li>
+            <li>
+              Click <b>More settings</b> (or open the "Options" section at the bottom of the
+              dialog).
+            </li>
+            <li>Uncheck <b>Print headers and footers</b> to remove date, URL, and page numbers.</li>
+            <li>
+              Check <b>Print backgrounds (colors and images)</b> to include chat colors and
+              highlights.
+            </li>
+          </ol>
+        </div>
+      </q-card-section>
+
+      <!-- Dialog Actions -->
+      <q-card-actions align="right">
+        <q-btn flat label="Close" v-close-popup />
+      </q-card-actions>
+    </q-card>
+  </q-dialog>
 
   <q-dialog v-model="selectFonts" @before-show="loadFontsList">
     <q-card style="width: 100%; max-width: 500px" class="q-pa-md">
@@ -209,6 +268,15 @@ function startConverting() {
   loading.value = false
   questionElement.value = null
 }
+
+// control dialog visibility
+const showPrintTips = ref(false)
+
+// expose function to open dialog
+function openPrintTips() {
+  showPrintTips.value = true
+}
+
 const questionElement = ref<HTMLElement | null>(null)
 function downloadChat(id: string) {
   if (editorRef.value == null) {
@@ -224,9 +292,9 @@ const goTo = (id: string) => {
   if (editorRef.value == null) {
     return
   }
-  console.log(id)
+  //  console.log(id)
   const el = editorRef.value.getContentEl().querySelector(`#${id}`)
-  console.log(el)
+  //  console.log(el)
   el?.scrollIntoView({
     block: 'start',
     behavior: 'smooth',
@@ -360,7 +428,7 @@ onMounted(() => {
 /* @import url(''); */
 .q-editor__toolbars-container {
   top: 60px;
-  z-index: 9999;
+  z-index: 990;
   position: fixed;
   width: 100vw;
   background-color: var(--q-primary);

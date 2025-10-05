@@ -19,8 +19,14 @@
     <div class="text-center text-subtitle1">You don't have any collections</div>
   </template>
   <template v-else>
-    <q-list bordered>
-      <q-item clickable v-ripple v-for="(value, i) in collections" :key="value.id">
+    <q-list separator>
+      <q-item
+        clickable
+        :to="`/collection/${value.id}?name=${value.name}`"
+        v-ripple
+        v-for="(value, i) in collections"
+        :key="value.id"
+      >
         <q-item-section avatar>
           <q-icon color="grey-8" name="folder" />
         </q-item-section>
@@ -61,6 +67,11 @@ async function deleteFn(params: string, i: number) {
     $q.notify({ message: 'failed to deleted', type: 'negative' })
   }
 }
+
+function addToCollections(col: Collection) {
+  ;(collections.value = collections.value ?? []).push(col)
+}
+defineExpose({ addToCollections })
 </script>
 
 <style></style>
